@@ -1,0 +1,10 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+find_dependency(Python3 COMPONENTS Interpreter Development)
+find_dependency(pybind11 CONFIG)
+
+include("${CMAKE_CURRENT_LIST_DIR}/openap_trajectory-targets.cmake")
+
+check_required_components(openap_trajectory)
