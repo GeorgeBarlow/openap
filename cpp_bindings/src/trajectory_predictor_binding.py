@@ -21,7 +21,7 @@ from trajectory_prediction_example import (
     TrajectoryPrediction,
     AircraftState,
     Position,
-    RouteWaypoint,
+    Waypoint,
     RouteSegment,
     FlightPhase
 )
@@ -78,7 +78,7 @@ class TrajectoryPredictorWrapper:
             from_dict = seg_dict['from']
             to_dict = seg_dict['to']
 
-            from_wpt = RouteWaypoint(
+            from_wpt = Waypoint(
                 identifier=from_dict['identifier'],
                 position=Position(
                     latitude=from_dict['latitude'],
@@ -87,7 +87,7 @@ class TrajectoryPredictorWrapper:
                 distance_from_origin_nm=from_dict['distance_from_origin_nm']
             )
 
-            to_wpt = RouteWaypoint(
+            to_wpt = Waypoint(
                 identifier=to_dict['identifier'],
                 position=Position(
                     latitude=to_dict['latitude'],
