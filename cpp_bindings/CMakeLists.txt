@@ -9,10 +9,34 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # =============================================================================
+# Windows: Force all outputs to same directory (avoid Debug/Release subdirs)
+# =============================================================================
+if(MSVC)
+    # Put all binaries in the same directory for multi-config builds
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+
+    # Also set per-config output directories to the same place
+    foreach(CONFIG_TYPE ${CMAKE_CONFIGURATION_TYPES})
+        string(TOUPPER ${CONFIG_TYPE} CONFIG_TYPE_UPPER)
+        set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} ${CMAKE_BINARY_DIR}/bin)
+        set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} ${CMAKE_BINARY_DIR}/lib)
+        set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} ${CMAKE_BINARY_DIR}/lib)
+    endforeach()
+endif()
+
+# =============================================================================
 # Options
 # =============================================================================
 option(BUILD_EXAMPLES "Build example applications" ON)
-option(BUILD_SHARED_LIBS "Build shared libraries" ON)
+
+# On Windows, prefer static library to avoid DLL complexity
+if(WIN32)
+    option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
+else()
+    option(BUILD_SHARED_LIBS "Build shared libraries" ON)
+endif()
 
 # =============================================================================
 # Find Python and pybind11
@@ -56,10 +80,17 @@ target_link_libraries(openap_trajectory
         Python3::Python
 )
 
-# Copy Python binding module to build directory
+# Copy Python binding modules to where executables can find them
+if(MSVC)
+    # On Windows, copy to bin directory alongside executables
+    set(PYTHON_MODULE_DEST ${CMAKE_BINARY_DIR}/bin)
+else()
+    set(PYTHON_MODULE_DEST ${CMAKE_BINARY_DIR})
+endif()
+
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/trajectory_predictor_binding.py
-    ${CMAKE_CURRENT_BINARY_DIR}/trajectory_predictor_binding.py
+    ${PYTHON_MODULE_DEST}/trajectory_predictor_binding.py
     COPYONLY
 )
 
@@ -67,7 +98,21 @@ configure_file(
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../examples/trajectory_prediction_example.py)
     configure_file(
         ${CMAKE_CURRENT_SOURCE_DIR}/../examples/trajectory_prediction_example.py
-        ${CMAKE_CURRENT_BINARY_DIR}/trajectory_prediction_example.py
+        ${PYTHON_MODULE_DEST}/trajectory_prediction_example.py
+        COPYONLY
+    )
+endif()
+
+# Also copy to build root for convenience
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/trajectory_predictor_binding.py
+    ${CMAKE_BINARY_DIR}/trajectory_predictor_binding.py
+    COPYONLY
+)
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../examples/trajectory_prediction_example.py)
+    configure_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/../examples/trajectory_prediction_example.py
+        ${CMAKE_BINARY_DIR}/trajectory_prediction_example.py
         COPYONLY
     )
 endif()
@@ -85,11 +130,20 @@ if(BUILD_EXAMPLES)
             openap_trajectory
     )
 
-    # Set RPATH so example can find Python libs
-    set_target_properties(trajectory_example PROPERTIES
-        BUILD_RPATH "${Python3_LIBRARY_DIRS}"
-        INSTALL_RPATH "${Python3_LIBRARY_DIRS}"
-    )
+    if(NOT WIN32)
+        # Set RPATH so example can find Python libs (Unix only)
+        set_target_properties(trajectory_example PROPERTIES
+            BUILD_RPATH "${Python3_LIBRARY_DIRS}"
+            INSTALL_RPATH "${Python3_LIBRARY_DIRS}"
+        )
+    endif()
+
+    # On Windows, set working directory hint for running from IDE
+    if(MSVC)
+        set_target_properties(trajectory_example PROPERTIES
+            VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+        )
+    endif()
 endif()
 
 # =============================================================================
